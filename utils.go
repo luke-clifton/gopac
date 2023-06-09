@@ -217,6 +217,20 @@ func isResolvable(host string) bool {
 	return true
 }
 
+func resolve(host string) (net.IP, error) {
+	ip := net.ParseIP(host)
+	if ip != nil {
+		return ip.To4(), nil
+	}
+
+	ip2, err := net.ResolveIPAddr("ip4", host)
+	if err != nil {
+		return nil, err
+	}
+
+	return ip2.IP, nil
+}
+
 // isInNet returns true if the IP address of the host matches the specified IP
 // address pattern.
 // mask is the pattern informing which parts of the IP address to match against.
@@ -226,14 +240,13 @@ func isInNet(host, pattern, mask string) bool {
 		return false
 	}
 
-	address, err := net.ResolveIPAddr("ip4", host)
-
+	address, err := resolve(host)
 	if err != nil {
 		return false
 	}
 
 	maskIp := net.IPMask(net.ParseIP(mask))
-	return address.IP.Mask(maskIp).String() == pattern
+	return address.Mask(maskIp).String() == pattern
 }
 
 // dnsResolve returns the IP address of the host.
