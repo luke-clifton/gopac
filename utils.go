@@ -16,7 +16,6 @@ package gopac
 
 import (
 	"net"
-	"os"
 	"regexp"
 	"strings"
 
@@ -245,8 +244,19 @@ func isInNet(host, pattern, mask string) bool {
 		return false
 	}
 
-	maskIp := net.IPMask(net.ParseIP(mask))
-	return address.Mask(maskIp).String() == pattern
+	maskIp := net.ParseIP(mask)
+	if maskIp == nil {
+		return false
+	}
+
+	maskIp4 := maskIp.To4()
+	if maskIp4 == nil {
+		return false
+	}
+
+	maskMask := net.IPv4Mask(maskIp4[0], maskIp4[1], maskIp4[2], maskIp4[3])
+	patternIp := net.ParseIP(pattern)
+	return address.Mask(maskMask).Equal(patternIp)
 }
 
 // dnsResolve returns the IP address of the host.
@@ -262,19 +272,36 @@ func dnsResolve(host string) string {
 
 // myIpAddress returns the IP address of the host machine.
 func myIpAddress() otto.Value {
-	hostname, err := os.Hostname()
 
+	addrs, err := net.InterfaceAddrs()
 	if err != nil {
 		return otto.UndefinedValue()
 	}
 
-	address := dnsResolve(hostname)
+	// we return the *last* ip found, because it suits my usecase.
+	// todo: determine a better way to figure out which IP address
+	// to use.
+	r := otto.UndefinedValue()
 
-	if value, err := otto.ToValue(address); err == nil {
-		return value
+	for _, addr := range addrs {
+		ip, _, err := net.ParseCIDR(addr.String())
+		if err != nil {
+			continue
+		}
+		if ip.IsLoopback() {
+			continue
+		}
+		if ip.IsLinkLocalUnicast() {
+			continue
+		}
+		value, err := otto.ToValue(ip.String())
+		if err != nil {
+			continue
+		}
+		r = value
 	}
 
-	return otto.UndefinedValue()
+	return r
 }
 
 // dnsDomainLevels returns the number of domain levels in the host.
