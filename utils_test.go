@@ -16,6 +16,7 @@ package gopac
 
 import (
 	"testing"
+	"os"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -56,4 +57,9 @@ func TestUtilsDnsDomainLevels(t *testing.T) {
 func TestUtilsShExpMatch(t *testing.T) {
 	assert.True(t, shExpMatch("http://home.netscape.com/people/ari/index.html", "*/ari/*"), "'http://home.netscape.com/people/ari/index.html' should match '*/ari/*'")
 	assert.False(t, shExpMatch("http://home.netscape.com/people/montulli/index.html", "*/ari/*"), "'http://home.netscape.com/people/montulli/index.html' should not match '*/ari/*'")
+}
+
+func TestUtilsMyIpAddress(t *testing.T) {
+	os.Setenv("GOPAC_MYIPADDRESS", "10.2.3.1")
+	assert.Equal(t, myIpAddress().String(), "10.2.3.1")
 }

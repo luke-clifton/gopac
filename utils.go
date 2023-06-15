@@ -15,6 +15,7 @@
 package gopac
 
 import (
+	"os"
 	"net"
 	"regexp"
 	"strings"
@@ -272,6 +273,50 @@ func dnsResolve(host string) string {
 
 // myIpAddress returns the IP address of the host machine.
 func myIpAddress() otto.Value {
+	// Check the GOPAC_MYIPADDRESS environment variable and use that
+	// directly if it looks like an IP address. If it does not look
+	// like an IP address, assume it is an interface name, and get
+	// the IP for that interface.
+
+	env, exists := os.LookupEnv("GOPAC_MYIPADDRESS")
+
+	if exists {
+		// check if it is an IP address
+		eip := net.ParseIP(env)
+		if eip != nil {
+			v,err := otto.ToValue(eip.String())
+			if err == nil {
+				return v
+			}
+		}
+
+		// Assume it's an interface name
+		i,err := net.InterfaceByName(env)
+		if err == nil {
+			addrs, err := i.Addrs()
+			if err == nil {
+				for _, addr := range addrs {
+					ip, _, err := net.ParseCIDR(addr.String())
+					if err != nil {
+						continue
+					}
+					if ip.IsLoopback() {
+						continue
+					}
+					if ip.IsLinkLocalUnicast() {
+						continue
+					}
+					value, err := otto.ToValue(ip.String())
+					if err != nil {
+						continue
+					}
+					return value
+				}
+			}
+		}
+
+
+	}
 
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
